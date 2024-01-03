@@ -175,8 +175,8 @@ while True:
     try:
         event, values = window.read(timeout=100)
 
-        current_load += 0.1  # Replace with actual data from the slave
-        window['-CURRENT-LOAD-'].update(f'{current_load:.1f} kg')
+
+
 
         if event == sg.WIN_CLOSED:
             break
@@ -284,11 +284,11 @@ while True:
         # Read data from serial
     if ser.in_waiting >= 5:  # Check if at least 5 bytes are available (1 for the flag byte + 4 for the float)
             flag_byte = ser.read(1)  # Read the flag byte
-        if flag_byte == b'\xFF':  # Check if the flag byte is correct (0xFF)
+            if flag_byte == b'\xFF':  # Check if the flag byte is correct (0xFF)
                 loadcell_bytes = ser.read(4)  # Read the next 4 bytes (float)
                 received_load = struct.unpack('f', loadcell_bytes)[0]  # Convert bytes to float
 
-        if 0.00 <= received_load <= 15.00:  # Validate the received value
+            if 0.00 <= received_load <= 15.00:  # Validate the received value
                     current_load = received_load
                     window['-CURRENT-LOAD-'].update(f'{current_load:.2f} kg')  # Update GUI
 
@@ -297,9 +297,9 @@ while True:
 
         # ... (rest of your event loop)
 
-    except Exception as e:
-        sg.popup_error(f"An error occurred: {e}")
-        #break
+#    except Exception as e:
+#        sg.popup_error(f"An error occurred: {e}")
+#        break
 
 
 window.close()
