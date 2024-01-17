@@ -4,6 +4,7 @@ from PIL import Image
 import os
 import time
 import struct
+import tkinter as tk
 
 foot_comfort_button_pressed_time = None
 LONG_PRESS_DURATION = 2  # Duration for long press in seconds, adjust as needed
@@ -130,7 +131,21 @@ def resize_image(image_path, desired_width, desired_height):
         sg.popup_error(f"Failed to load or resize image: {e}")
         return None
 
-resized_logo_path = prepare_logo(company_logo_path, 500, 500)  # Adjust the size as needed
+resized_logo_path = prepare_logo(company_logo_path, 1, 1)  # Adjust the size as needed
+    
+#resize company_logo 
+resize_company_logo_path = 'resize_footlogo.png' 
+new_size = (60,40)
+try:
+    # Open the image file
+    with Image.open(company_logo_path) as img:
+        # Resize the image
+        resized_img = img.resize(new_size)
+        # Save the resized image
+        resized_img.save(resize_company_logo_path)
+    print(f"Image resized and saved to {company_logo_path}")
+except Exception as e:
+    print(f"Error: {e}")
 
 # Define the create_image_button function here
 def create_image_button(image_path, key, size=(100, 100)):
@@ -139,33 +154,51 @@ def create_image_button(image_path, key, size=(100, 100)):
         return sg.Button('', key=key, visible=False)
     return sg.Button('',
                      image_filename=resized_image_path,
-                     key=key,
+                     key=key,   
                      border_width=0,
                      button_color=(sg.theme_background_color(), sg.theme_background_color()),
                      pad=(5, 5), size=(size[0], size[1]))
 
 # Define the layout here
 layout = [
-    [sg.Column([
-        [create_image_button(left_foot_grey_image, '-LEFT-FOOT-', size=(300, 600))],
+    [
+     sg.Column([
+        [sg.Text('', size=(1,1))]     
     ]),
     sg.Column([
-        [create_image_button(right_foot_grey_image, '-RIGHT-FOOT-', size=(300, 600))]
+        [sg.Text('', size=(1,1))],
+        [create_image_button(left_foot_grey_image, '-LEFT-FOOT-', size=(350, 700))],
     ]),
-    sg.Column([
-        [sg.Button('', image_filename=company_logo_path, key='-FOOT-COMFORT-BUTTON-', border_width=0, button_color=(background_color, background_color), pad=((logo_x_offset, 0), (logo_y_offset, 0)))],
-        [sg.Text("Foot Comfort Technology", pad=((logo_x_offset, 0), (0, 0)), font=("Helvetica", 16))],
-        [sg.Text('🎯', font=('Helvetica', 30)), sg.Text(f'{target_load:.1f} kg', key='-TARGET-LOAD-', font=('Helvetica', 20)),
+     sg.Column([
+        [sg.Text('', size=(11,1))]     
+    ]),
+     sg.Column([
+        
+        [sg.Text('', size=(1,3))],
+        [sg.Text('', size=(1,1)), sg.Text('🎯', font=('Helvetica', 24)), sg.Text(f'{target_load:.1f} kg', key='-TARGET-LOAD-', font=('Helvetica', 20)),
          sg.Text('⚡', font=('Helvetica', 20)),  # Buffer space
-         sg.Text(f'{current_load:.1f} kg', key='-CURRENT-LOAD-', font=('Helvetica', 20))],
-        [create_image_button(play_button_grey, '-PLAY-PAUSE-', size=(100, 100)),
-         create_image_button(plus_button_grey, '-PLUS-', size=(100, 100)),
-         create_image_button(minus_button_grey, '-MINUS-', size=(100, 100)),
-         create_image_button(star_button_grey, '-STAR-', size=(100, 100))]
+         sg.Text(f'{current_load:.1f} kg', key='-CURRENT-LOAD-', font=('Helvetica', 20))],  
+        [sg.Text('', size=(1,1))],
+        [sg.Text('', size = (12,1)), create_image_button(plus_button_grey, '-PLUS-', size=(100, 100))],
+        # [sg.Text('', size=(1,1))],
+        [create_image_button(play_button_grey, '-PLAY-PAUSE-', size=(100, 100)), sg.Text('', size=(12,1)), create_image_button(star_button_grey, '-STAR-', size=(100, 100))],
+        # [sg.Text('', size=(1,1))],
+        [sg.Text('', size=(12,1)), create_image_button(minus_button_grey, '-MINUS-', size=(100, 100))]
+    ]),
+     sg.Column([
+        [sg.Text('', size=(11,1))]     
+    ]),
+     sg.Column([
+        [sg.Button(image_filename = resize_company_logo_path, key='-FOOT-COMFORT-BUTTON-', border_width=0, button_color=(background_color, background_color)),
+         sg.Text("Foot Comfort Technology", font=("Helvetica", 14))],
+        [create_image_button(right_foot_grey_image, '-RIGHT-FOOT-', size=(350, 700))]
     ])]
 ]
 
-window = sg.Window('Foot Comfort Control', layout, finalize=True, size=(1280, 800), background_color=background_color, location=(window_x_position, window_y_position))
+window = sg.Window('Foot Comfort Control', layout, finalize=True, size=(1280, 800), background_color=background_color, default_element_size=(30, 1))
+
+# create window and set the window's location to center it
+#...
 
 # Event loop and logic for updating buttons
 # ...
@@ -201,11 +234,11 @@ while True:
 
         # Update Left Foot Image
         current_left_image = left_foot_color_image if is_left_foot_color else left_foot_grey_image
-        window['-LEFT-FOOT-'].update(image_filename=resize_image(current_left_image, 300, 600))
+        window['-LEFT-FOOT-'].update(image_filename=resize_image(current_left_image, 350, 700))
 
         # Update Right Foot Image to Grey
         current_right_image = right_foot_grey_image
-        window['-RIGHT-FOOT-'].update(image_filename=resize_image(current_right_image, 300, 600))
+        window['-RIGHT-FOOT-'].update(image_filename=resize_image(current_right_image, 350, 700))
 
         ser.write(get_status_byte())
 
@@ -218,11 +251,11 @@ while True:
 
         # Update Right Foot Image
         current_right_image = right_foot_color_image if is_right_foot_color else right_foot_grey_image
-        window['-RIGHT-FOOT-'].update(image_filename=resize_image(current_right_image, 300, 600))
+        window['-RIGHT-FOOT-'].update(image_filename=resize_image(current_right_image, 350, 700))
 
         # Update Left Foot Image to Grey
         current_left_image = left_foot_grey_image
-        window['-LEFT-FOOT-'].update(image_filename=resize_image(current_left_image, 300, 600))
+        window['-LEFT-FOOT-'].update(image_filename=resize_image(current_left_image, 350, 700))
 
         ser.write(get_status_byte())
 
@@ -241,14 +274,14 @@ while True:
     elif event == '-MINUS-' and target_load > 0:
         target_load -= 0.5
         window['-TARGET-LOAD-'].update(f'{target_load:.2f} kg')
-      #  ser.write(decrease_load_command)  # Send byte command
+        ser.write(decrease_load_command)  # Send byte command
 
     # Toggle the star button's state and update its image
     elif event == '-STAR-':
         is_star_active = not is_star_active
         new_image = star_button_orange if is_star_active else star_button_grey
         window['-STAR-'].update(image_filename=resize_image(new_image, 100, 100))
-     #   ser.write(power_command)  # Send byte command
+        ser.write(power_command)  # Send byte command
 
     # Implementing long press logic for reset (placeholder)
     # Check for foot comfort button press
@@ -276,6 +309,7 @@ while True:
         ser.write(reset_command)  # Send reset command if the long press condition was met
         reset_triggered = False  # Reset the trigger
     else:
+        # print ("no reset")
         ser.write(no_reset_command)  # Continuously send no reset command if the condition wasn't met
 
             # Read data from serial
