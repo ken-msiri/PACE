@@ -1,0 +1,241 @@
+#include <SoftwareSerial.h>
+#include <HX711.h>
+
+#define tx 11
+#define rx 10
+//SoftwareSerial bt(rx, tx);  //RX, TX
+
+const int LOADCELL1_DOUT_PIN = 3;
+const int LOADCELL1_SCK_PIN = 2;
+const int LOADCELL2_DOUT_PIN = 9;
+const int LOADCELL2_SCK_PIN = 8;
+const int RELAY_SIG_L = 4;     //relay 4 on HW-68
+const int RELAY_SIG_R = 5;     //relay 3 on HW-68
+const int RELAY_SIG_CTRL = 6;  // relay 2 on HW-68
+const int RELAY_SIG_RELEASE = 7;         // relay 2 on HW-68
+const int RELAY_SIG_VAC = 12;
+
+//test load cel
+float current_load = 0.00;  // Current load
+unsigned long previousMillis = 0;
+const long interval = 100;  // 1000 ms = 1 second
+
+char status_LR;
+bool control_status;
+float target_load;
+byte status_byte = 0x00;
+byte control_byte = 0x03;
+byte power_byte = 0x05;
+byte reset_byte = 0x07;
+byte release_byte = 0x09;
+
+HX711 scale1;
+HX711 scale2;
+float calibration_factor = 22571;
+
+void setup() {
+  //wdt_disable();
+  Serial.begin(9600);
+  //bt.begin(9600);
+  pinMode(tx, OUTPUT);
+  pinMode(rx, INPUT);
+  digitalWrite(RELAY_SIG_VAC, LOW);  // Turn OFF the relay at the beginning 
+
+
+  pinMode(RELAY_SIG_L, OUTPUT);
+  pinMode(RELAY_SIG_R, OUTPUT);
+  pinMode(RELAY_SIG_CTRL, OUTPUT);  // Set control relay as output
+  pinMode(RELAY_SIG_RELEASE, OUTPUT);
+  pinMode(RELAY_SIG_VAC, OUTPUT);
+
+  scale1.begin(LOADCELL1_DOUT_PIN, LOADCELL1_SCK_PIN);
+  scale2.begin(LOADCELL2_DOUT_PIN, LOADCELL2_SCK_PIN);
+  scale1.set_scale(calibration_factor);
+  scale1.tare(calibration_factor);
+  scale2.set_scale(calibration_factor);
+  scale2.tare();
+  //wdt_enable(WDTO_2S);
+}
+
+void (*resetFunc)(void) = 0;  // declare a function for resetting slave
+
+int signal_LR = 0;
+void loop() {
+  // delay(500);
+
+  if (Serial.available() >= 5) {
+
+    //byte reset_byte = bt.read();
+
+    byte signalarr[5];
+    Serial.readBytes(signalarr, 5);
+
+    for (int i = 0; i < 5; i++) {
+      if (signalarr[i] >= 0x00 && signalarr[i] <= 0x01) 
+      {
+        status_byte = signalarr[i];
+        // Serial.println("status byte = ");
+        // Serial.println(signalarr[i]);
+      } 
+      else if (signalarr[i] >= 0x02 && signalarr[i] <= 0x03) 
+      {
+        control_byte = signalarr[i];
+        // Serial.println("Control byte = ");
+        // Serial.println(signalarr[i]);
+      } 
+      else if (signalarr[i] >= 0x04 && signalarr[i] <= 0x05) 
+      {
+        power_byte = signalarr[i];
+        // Serial.println("Power byte = ");
+        // Serial.println(signalarr[i]);
+      } 
+      else if (signalarr[i] >= 0x06 && signalarr[i] <= 0x07) 
+      {
+        reset_byte = signalarr[i];
+        // Serial.println("vacuum on = ");
+        // Serial.println(signalarr[i]);
+      }
+      else if (signalarr[i] >= 0x08 && signalarr[i] <= 0x09)
+      {
+        release_byte = signalarr[i];
+      }
+    }
+
+    if (status_byte == 0) {
+      status_LR = 'L';
+      // Serial.println("left");
+    } else if (status_byte == 1) {
+      status_LR = 'R';
+      // Serial.println("right");
+    }
+
+    // status_LR = (status_byte == 0x00) ? 'L' : 'R';
+
+    if (control_byte == 0x02) //
+    {
+      control_status = true;
+      // Serial.println("on");
+    } 
+    else if (control_byte == 0x03) 
+    {
+      control_status = false;
+      // Serial.println("off");
+    }
+    // target_load = *(float*) target_load_bytes;
+
+    if (power_byte == 0x04) 
+    {             // Assuming 0x04 means ON
+      digitalWrite(RELAY_SIG_VAC, HIGH);  // Turn ON the relay
+  
+      // Serial.println("vacuum on");
+    } 
+    else if (power_byte == 0x05) 
+    {     // Assuming 0x05 means OFF
+      digitalWrite(RELAY_SIG_VAC, LOW);  // Turn OFF the relay
+      // Serial.println("vacuum off");
+    }
+
+    if (reset_byte == 0x06) 
+    {  // Assuming 0x04 means ON
+      //  asm volatile ("jmp 0"); // Turn ON the relay
+      Serial.println("RESET");
+      //delay(3000);  //watchdog reset
+                    // resetFunc();// request to reset
+
+    } 
+    else if (reset_byte == 0x07) 
+    {
+      // Serial.println("NO reset");
+    }
+
+    if (release_byte == 0x08)
+    {
+      digitalWrite(RELAY_SIG_RELEASE, HIGH);
+      delay(1);
+      digitalWrite(RELAY_SIG_RELEASE, LOW);
+      Serial.println("releasing air");
+    }
+    else if (release_byte == 0x09)
+    {
+      digitalWrite(RELAY_SIG_RELEASE, LOW);
+      // Serial.println("no air release");
+    }
+
+    Serial.println();
+  }
+  float loadcell_1 = scale1.get_units();  // Corrected here
+  float loadcell_2 = scale2.get_units();  // Corrected here
+  // loadcell_1 = loadcell_1/1;
+  // loadcell_2 = loadcell_2/1;
+
+  if (loadcell_1 < 0.1) loadcell_1 = 0.00;
+  if (loadcell_2 < 0.1) loadcell_2 = 0.00;
+  if (status_LR == 'L') {
+    current_load = loadcell_1;
+  } else if (status_LR == 'R') {
+    current_load = loadcell_2;
+  }
+  Serial.println(current_load);
+
+  //prevent sending negative value to master
+
+
+
+  // if(Serial.available()) {
+  //   char temp = Serial.read();
+  //   if(temp == 't' || temp == 'T') scale1.tare();
+
+  // }
+
+  if (control_status) { //if button turned on 
+    digitalWrite(RELAY_SIG_CTRL, HIGH);  // Turn on control relay
+    if (status_LR == 'L') {
+      Serial.println("enter relay control Leftt");
+      // if(loadcell_1 < target_load)
+      digitalWrite(RELAY_SIG_L, HIGH);
+      digitalWrite(RELAY_SIG_R, LOW);
+      
+      // else digitalWrite(RELAY_SIG_L,LOW);
+      // digitalWrite(RELAY_SIG_R,LOW);
+    } else if (status_LR == 'R') {
+      Serial.println("enter relay control right");
+      // if(loadcell_2 < target_load)
+      digitalWrite(RELAY_SIG_R, HIGH);
+      digitalWrite(RELAY_SIG_L, LOW);
+      
+      
+      // else digitalWrite(RELAY_SIG_R,LOW);
+      // digitalWrite(RELAY_SIG_L,LOW);
+    }
+  } else {
+
+    digitalWrite(RELAY_SIG_CTRL, LOW);  // Turn off control relay
+    
+
+ 
+    // digitalWrite(RELAY_SIG_L, LOW);
+    // digitalWrite(RELAY_SIG_R, LOW);
+  }
+
+
+
+  //test load cell
+
+  // float number = loadcell_1;
+  unsigned long currentMillis = millis();
+  
+  if (currentMillis - previousMillis >= interval) {
+
+    previousMillis = currentMillis;
+
+    // Send the loadcell_1 back to the master
+    Serial.write(0xFF);
+    Serial.write(reinterpret_cast<uint8_t*>(&current_load), sizeof(float));
+
+    // delay(3000);
+  }
+
+  //   // delay(100);
+ // wdt_reset();
+  //  //Serial.println(loadcell_1);
+}
